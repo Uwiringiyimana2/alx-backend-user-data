@@ -4,17 +4,24 @@ import re
 import logging
 import os
 import mysql.connector
-from typing import Tuple
+from typing import Tuple, List
 
 
+patterns = {
+    'extract': lambda x, y: r'(?P<field>{})=[^{}]*'.format('|'.join(x), y),
+    'replace': lambda x: r'\g<field>={}'.format(x),
+}
 # Define the fields considered PII
-PII_FIELDS: Tuple = ("name", "email", "phone", "ssn", "ip")
+PII_FIELDS: Tuple = ("name", "email", "phone", "ssn", "password")
 
 
-def filter_datum(fields, redaction, message, separator):
-    """Returns the log message obfuscated."""
-    pattern = f"({'|'.join(fields)})=([^;]+)"
-    return re.sub(pattern, lambda m: f"{m.group(1)}={redaction}", message)
+def filter_datum(
+        fields: List[str], redaction: str, message: str, separator: str,
+        ) -> str:
+    """Filters a log line.
+    """
+    extract, replace = (patterns["extract"], patterns["replace"])
+    return re.sub(extract(fields, separator), replace(redaction), message)
 
 
 class RedactingFormatter(logging.Formatter):
@@ -31,9 +38,9 @@ class RedactingFormatter(logging.Formatter):
 
     def format(self, record: logging.LogRecord) -> str:
         """Format the log record and redact sensitive fields."""
-        format_record = super().format(record)
-        return filter_datum(self.fields, RedactingFormatter.REDACTION,
-                            format_record, RedactingFormatter.SEPARATOR)
+        format_record = super(RedactingFormatter, self).format(record)
+        return filter_datum(self.fields, self.REDACTION,
+                            format_record, self.SEPARATOR)
 
 
 def get_logger() -> logging.Logger:
@@ -41,11 +48,8 @@ def get_logger() -> logging.Logger:
     logger = logging.getLogger('user_data')
     logger.setLevel(logging.INFO)
     logger.propagate = False
-
-    formatter = RedactingFormatter(PII_FIELDS)
     stream_handler = logging.StreamHandler()
-    stream_handler.setFormatter(formatter)
-
+    stream_handler.setFormatter(RedactingFormatter(PII_FIELDS))
     logger.addHandler(stream_handler)
     return logger
 
@@ -53,9 +57,9 @@ def get_logger() -> logging.Logger:
 def get_db() -> mysql.connector.connection.MySQLConnection:
     """eturns a connector to the database"""
     PERSONAL_DATA_DB_USERNAME = os.getenv('PERSONAL_DATA_DB_USERNAME', 'root')
-    PERSONAL_DATA_DB_PASSWORD = os.getenv('PERSONAL_DATA_DB_PASSWORD', '')
+    PERSONAL_DATA_DB_PASSWORD = os.getenv('PERSONAL_DATA_DB_PASSWORD', "")
     PERSONAL_DATA_DB_HOST = os.getenv('PERSONAL_DATA_DB_HOST', 'localhost')
-    PERSONAL_DATA_DB_NAME = os.getenv('PERSONAL_DATA_DB_NAME')
+    PERSONAL_DATA_DB_NAME = os.getenv('PERSONAL_DATA_DB_NAME', "")
 
     return mysql.connector.connect(
         host=PERSONAL_DATA_DB_HOST,
