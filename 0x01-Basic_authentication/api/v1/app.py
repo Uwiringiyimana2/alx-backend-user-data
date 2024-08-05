@@ -9,6 +9,16 @@ from flask_cors import (CORS, cross_origin)
 import os
 
 
+auth = None
+
+if getenv("AUTH_TYPE") == "basic_auth":
+    from api.v1.auth.basic_auth import BasicAuth
+    auth = BasicAuth()
+elif getenv("AUTH_TYPE"):
+    from api.v1.auth.auth import Auth
+    auth = Auth()
+
+
 app = Flask(__name__)
 app.config['JSONIFY_PRETTYPRINT_REGULAR'] = True
 app.register_blueprint(app_views)
@@ -34,6 +44,20 @@ def not_found(error) -> str:
     """ Not found handler
     """
     return jsonify({"error": "Not found"}), 404
+
+
+@app.before_request
+def filter():
+    """Filter each request"""
+    if auth is not None:
+        excluded_paths = [
+            '/api/v1/status/', '/api/v1/unauthorized/', '/api/v1/forbidden/'
+            ]
+        if auth.require_auth(request.path, excluded_paths):
+            if auth.authorization_header(request) is None:
+                abort(401)
+            if auth.current_user(request) is None:
+                abort(403)
 
 
 if __name__ == "__main__":
