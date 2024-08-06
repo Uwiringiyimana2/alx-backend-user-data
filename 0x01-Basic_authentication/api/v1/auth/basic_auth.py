@@ -83,10 +83,10 @@ class BasicAuth(Auth):
         if not user_list:
             return None
 
-        valid_users = [
-            user for user in user_list if user.is_valid_password(user_pwd)
-        ]
-        return valid_users
+        for user in user_list:
+            if user.is_valid_password(user_pwd):
+                return user
+        return None
 
     def current_user(self, request=None) -> TypeVar('User'):
         """retrieves the User instance for a request
