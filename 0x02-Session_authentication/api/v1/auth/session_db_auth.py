@@ -30,17 +30,16 @@ class SessionDBAuth(SessionExpAuth):
         """
         try:
             user_sessions = UserSession.search({'session_id': session_id})
-            return user_session.get("user_id")
         except Exception:
             return None
         if len(user_sessions) <= 0:
             return None
         cur_time = datetime.now()
         time_span = timedelta(seconds=self.session_duration)
-        exp_time = sessions[0].created + time_span
+        exp_time = user_sessions[0].created_at + time_span
         if exp_time < cur_time:
             return None
-        return sessions[0].user_id
+        return user_sessions[0].user_id
 
     def destroy_session(self, request=None):
         """ Destroys an authenticated session.
