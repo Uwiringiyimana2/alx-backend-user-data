@@ -65,3 +65,5 @@ class DB():
             else:
                 key = getattr(User, key)
                 user.key = value
+        # self._session.add(user)
+        # self._session.commit()
